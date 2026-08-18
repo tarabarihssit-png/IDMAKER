@@ -811,8 +811,8 @@
 async function downloadPDF() {
 
     const button = document.querySelector(".btn-download");
-    const frontCard = document.getElementById("front-card");
-    const backCard = document.getElementById("back-card");
+    const printArea = document.getElementById("print-area");
+    const wrappers = printArea.querySelectorAll(".card-wrapper");
 
     try {
 
@@ -821,73 +821,48 @@ async function downloadPDF() {
             return;
         }
 
-        if (!frontCard || !backCard) {
-            alert("Front ya Back card nahi mila.");
-            return;
-        }
-
         button.disabled = true;
         button.textContent = "GENERATING PDF...";
 
-        /*
-         * Create two separate A4 pages.
-         * Each page contains only one 5.4cm × 8.6cm ID card.
-         */
-        const page1 = document.createElement("div");
-        const page2 = document.createElement("div");
+        // Save original styles
+        const oldWidth = printArea.style.width;
+        const oldDisplay = printArea.style.display;
+        const oldGap = printArea.style.gap;
 
-        function prepareA4Page(page, card) {
+        const oldStyles = [];
 
-            page.style.width = "21cm";
-            page.style.height = "29.7cm";
-            page.style.background = "#ffffff";
-            page.style.display = "flex";
-            page.style.alignItems = "center";
-            page.style.justifyContent = "center";
-            page.style.boxSizing = "border-box";
-            page.style.margin = "0";
-            page.style.padding = "0";
+        wrappers.forEach((wrapper) => {
 
-            const cardClone = card.cloneNode(true);
+            oldStyles.push({
+                width: wrapper.style.width,
+                height: wrapper.style.height,
+                margin: wrapper.style.margin,
+                padding: wrapper.style.padding,
+                pageBreakAfter: wrapper.style.pageBreakAfter,
+                breakAfter: wrapper.style.breakAfter
+            });
 
-            cardClone.style.width = "5.4cm";
-            cardClone.style.height = "8.6cm";
-            cardClone.style.margin = "0";
-            cardClone.style.position = "relative";
-            cardClone.style.boxSizing = "border-box";
-            cardClone.style.flex = "none";
+            wrapper.style.width = "5.4cm";
+            wrapper.style.height = "8.6cm";
+            wrapper.style.margin = "0 auto";
+            wrapper.style.padding = "0";
+            wrapper.style.boxSizing = "border-box";
+        });
 
-            page.appendChild(cardClone);
-        }
+        // A4 container
+        printArea.style.width = "21cm";
+        printArea.style.display = "flex";
+        printArea.style.flexDirection = "column";
+        printArea.style.alignItems = "center";
+        printArea.style.gap = "0";
 
-        prepareA4Page(page1, frontCard);
-        prepareA4Page(page2, backCard);
+        // Exactly one card per A4 page
+        wrappers[0].style.pageBreakAfter = "always";
+        wrappers[0].style.breakAfter = "page";
 
-        /*
-         * Keep the temporary pages in the document so html2canvas
-         * can calculate their layout correctly.
-         */
-        const holder = document.createElement("div");
+        wrappers[1].style.pageBreakAfter = "auto";
+        wrappers[1].style.breakAfter = "auto";
 
-        holder.style.position = "fixed";
-        holder.style.left = "0";
-        holder.style.top = "0";
-        holder.style.width = "21cm";
-        holder.style.zIndex = "-9999";
-        holder.style.background = "#ffffff";
-        holder.style.pointerEvents = "none";
-
-        page1.style.marginBottom = "0";
-        page2.style.marginTop = "0";
-
-        holder.appendChild(page1);
-        holder.appendChild(page2);
-        document.body.appendChild(holder);
-
-        /*
-         * Give the browser time to render the cloned cards and
-         * load the background/signature images.
-         */
         await new Promise(resolve => setTimeout(resolve, 500));
 
         const opt = {
@@ -902,42 +877,43 @@ async function downloadPDF() {
             },
 
             html2canvas: {
-                scale: 2,
+                scale: 3,
                 useCORS: true,
-                allowTaint: false,
-                backgroundColor: "#ffffff",
-                logging: false
+                allowTaint: true,
+                backgroundColor: "#ffffff"
             },
 
             jsPDF: {
                 unit: "cm",
                 format: "a4",
                 orientation: "portrait"
+            },
+
+            pagebreak: {
+                mode: ["css"]
             }
         };
 
-        /*
-         * Page 1 = Front
-         * Page 2 = Back
-         */
-        let worker = html2pdf()
+        await html2pdf()
             .set(opt)
-            .from(page1)
-            .toPdf();
+            .from(printArea)
+            .save();
 
-        worker = worker
-            .get("pdf")
-            .then(function(pdf) {
-                pdf.addPage();
-            })
-            .from(page2)
-            .toContainer()
-            .toCanvas()
-            .toPdf();
+        // Restore preview
+        printArea.style.width = oldWidth;
+        printArea.style.display = oldDisplay;
+        printArea.style.gap = oldGap;
 
-        await worker.save();
+        wrappers.forEach((wrapper, index) => {
 
-        holder.remove();
+            wrapper.style.width = oldStyles[index].width;
+            wrapper.style.height = oldStyles[index].height;
+            wrapper.style.margin = oldStyles[index].margin;
+            wrapper.style.padding = oldStyles[index].padding;
+            wrapper.style.pageBreakAfter = oldStyles[index].pageBreakAfter;
+            wrapper.style.breakAfter = oldStyles[index].breakAfter;
+            wrapper.style.boxSizing = "";
+        });
 
         button.disabled = false;
         button.textContent = "Download PDF (2 Pages)";
@@ -945,14 +921,6 @@ async function downloadPDF() {
     } catch (error) {
 
         console.error(error);
-
-        const holder = document.querySelector(
-            'body > div[style*="z-index: -9999"]'
-        );
-
-        if (holder) {
-            holder.remove();
-        }
 
         button.disabled = false;
         button.textContent = "Download PDF (2 Pages)";
