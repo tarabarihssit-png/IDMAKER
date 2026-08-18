@@ -824,14 +824,14 @@ async function downloadPDF() {
         button.disabled = true;
         button.textContent = "GENERATING PDF...";
 
-        /* Save original styles */
-        const oldPrintDisplay = printArea.style.display;
-        const oldPrintGap = printArea.style.gap;
-        const oldPrintWidth = printArea.style.width;
+        // Save original styles
+        const oldWidth = printArea.style.width;
+        const oldDisplay = printArea.style.display;
+        const oldGap = printArea.style.gap;
 
         const oldStyles = [];
 
-        wrappers.forEach((wrapper, index) => {
+        wrappers.forEach((wrapper) => {
 
             oldStyles.push({
                 width: wrapper.style.width,
@@ -844,26 +844,26 @@ async function downloadPDF() {
 
             wrapper.style.width = "5.4cm";
             wrapper.style.height = "8.6cm";
-            wrapper.style.margin = "0";
+            wrapper.style.margin = "0 auto";
             wrapper.style.padding = "0";
-            wrapper.style.transform = "scale(0.99)";
-            wrapper.style.transformOrigin = "top left";
-
-            if (index === 0) {
-                wrapper.style.pageBreakAfter = "always";
-                wrapper.style.breakAfter = "page";
-            } else {
-                wrapper.style.pageBreakAfter = "auto";
-                wrapper.style.breakAfter = "auto";
-            }
+            wrapper.style.boxSizing = "border-box";
         });
 
-        /* Make PDF area exactly 2 cards */
-        printArea.style.display = "block";
-        printArea.style.gap = "0";
+        // A4 container
         printArea.style.width = "21cm";
+        printArea.style.display = "flex";
+        printArea.style.flexDirection = "column";
+        printArea.style.alignItems = "center";
+        printArea.style.gap = "0";
 
-        await new Promise(resolve => setTimeout(resolve, 300));
+        // Exactly one card per A4 page
+        wrappers[0].style.pageBreakAfter = "always";
+        wrappers[0].style.breakAfter = "page";
+
+        wrappers[1].style.pageBreakAfter = "auto";
+        wrappers[1].style.breakAfter = "auto";
+
+        await new Promise(resolve => setTimeout(resolve, 500));
 
         const opt = {
 
@@ -879,7 +879,7 @@ async function downloadPDF() {
             html2canvas: {
                 scale: 3,
                 useCORS: true,
-                allowTaint: false,
+                allowTaint: true,
                 backgroundColor: "#ffffff"
             },
 
@@ -899,10 +899,10 @@ async function downloadPDF() {
             .from(printArea)
             .save();
 
-        /* Restore original preview */
-        printArea.style.display = oldPrintDisplay;
-        printArea.style.gap = oldPrintGap;
-        printArea.style.width = oldPrintWidth;
+        // Restore preview
+        printArea.style.width = oldWidth;
+        printArea.style.display = oldDisplay;
+        printArea.style.gap = oldGap;
 
         wrappers.forEach((wrapper, index) => {
 
@@ -912,7 +912,7 @@ async function downloadPDF() {
             wrapper.style.padding = oldStyles[index].padding;
             wrapper.style.pageBreakAfter = oldStyles[index].pageBreakAfter;
             wrapper.style.breakAfter = oldStyles[index].breakAfter;
-
+            wrapper.style.boxSizing = "";
         });
 
         button.disabled = false;
@@ -926,12 +926,11 @@ async function downloadPDF() {
         button.textContent = "Download PDF (2 Pages)";
 
         alert(
-            "PDF download nahi ho saka.\n\n" +
-            "Error: " + error.message
+            "PDF download nahi ho saka.\n\nError: " +
+            error.message
         );
     }
 }
-
     </script>
 
 </body>
