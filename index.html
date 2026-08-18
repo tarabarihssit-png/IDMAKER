@@ -808,97 +808,107 @@
 async function downloadPDF() {
 
     const button = document.querySelector(".btn-download");
+    const printArea = document.getElementById("print-area");
+    const wrappers = printArea.querySelectorAll(".card-wrapper");
 
     try {
-
-        if (typeof html2canvas !== "function") {
-            alert("html2canvas library load nahi hui.");
-            return;
-        }
 
         if (typeof html2pdf !== "function") {
             alert("PDF library load nahi hui.");
             return;
         }
 
-        const front = document.getElementById("front-card");
-        const back = document.getElementById("back-card");
-
-        if (!front || !back) {
-            alert("Front/Back card nahi mila.");
-            return;
-        }
-
         button.disabled = true;
         button.textContent = "GENERATING PDF...";
 
-        const canvasOptions = {
-            scale: 3,
-            useCORS: true,
-            allowTaint: true,
-            backgroundColor: "#ffffff",
-            logging: false
-        };
+        /* Save original styles */
+        const oldPrintDisplay = printArea.style.display;
+        const oldPrintGap = printArea.style.gap;
+        const oldPrintWidth = printArea.style.width;
 
-        // FRONT CARD
-        const frontCanvas = await html2canvas(
-            front,
-            canvasOptions
-        );
+        const oldStyles = [];
 
-        // BACK CARD
-        const backCanvas = await html2canvas(
-            back,
-            canvasOptions
-        );
+        wrappers.forEach((wrapper, index) => {
 
-        // Create PDF using html2pdf/jsPDF
-        const pdfWorker = html2pdf().set({
+            oldStyles.push({
+                width: wrapper.style.width,
+                height: wrapper.style.height,
+                margin: wrapper.style.margin,
+                padding: wrapper.style.padding,
+                pageBreakAfter: wrapper.style.pageBreakAfter,
+                breakAfter: wrapper.style.breakAfter
+            });
+
+            wrapper.style.width = "5.4cm";
+            wrapper.style.height = "8.6cm";
+            wrapper.style.margin = "0";
+            wrapper.style.padding = "0";
+
+            if (index === 0) {
+                wrapper.style.pageBreakAfter = "always";
+                wrapper.style.breakAfter = "page";
+            } else {
+                wrapper.style.pageBreakAfter = "auto";
+                wrapper.style.breakAfter = "auto";
+            }
+        });
+
+        /* Make PDF area exactly 2 cards */
+        printArea.style.display = "block";
+        printArea.style.gap = "0";
+        printArea.style.width = "5.4cm";
+
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        const opt = {
+
             margin: 0,
+
             filename: "JNV_ID_Card.pdf",
+
             image: {
                 type: "jpeg",
                 quality: 1
             },
+
+            html2canvas: {
+                scale: 3,
+                useCORS: true,
+                allowTaint: true,
+                backgroundColor: "#ffffff"
+            },
+
             jsPDF: {
                 unit: "cm",
                 format: [5.4, 8.6],
                 orientation: "portrait"
+            },
+
+            pagebreak: {
+                mode: ["css"]
             }
+        };
+
+        await html2pdf()
+            .set(opt)
+            .from(printArea)
+            .save();
+
+        /* Restore original preview */
+        printArea.style.display = oldPrintDisplay;
+        printArea.style.gap = oldPrintGap;
+        printArea.style.width = oldPrintWidth;
+
+        wrappers.forEach((wrapper, index) => {
+
+            wrapper.style.width = oldStyles[index].width;
+            wrapper.style.height = oldStyles[index].height;
+            wrapper.style.margin = oldStyles[index].margin;
+            wrapper.style.padding = oldStyles[index].padding;
+            wrapper.style.pageBreakAfter = oldStyles[index].pageBreakAfter;
+            wrapper.style.breakAfter = oldStyles[index].breakAfter;
+
         });
-
-        const pdf = await pdfWorker
-            .from(frontCanvas)
-            .toPdf()
-            .get("pdf");
-
-        // PAGE 1 = FRONT
-        pdf.deletePage(1);
-
-        pdf.addPage([5.4, 8.6], "portrait");
-
-        pdf.addImage(
-            frontCanvas.toDataURL("image/jpeg", 1),
-            "JPEG",
-            0,
-            0,
-            5.4,
-            8.6
-        );
-
-        // PAGE 2 = BACK
-        pdf.addPage([5.4, 8.6], "portrait");
-
-        pdf.addImage(
-            backCanvas.toDataURL("image/jpeg", 1),
-            "JPEG",
-            0,
-            0,
-            5.4,
-            8.6
-        );
-
-        pdf.save("JNV_ID_Card.pdf");
 
         button.disabled = false;
         button.textContent = "Download PDF (2 Pages)";
