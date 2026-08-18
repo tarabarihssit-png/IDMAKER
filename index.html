@@ -809,13 +809,11 @@
 
 
 async function downloadPDF() {
-
     const button = document.querySelector(".btn-download");
     const printArea = document.getElementById("print-area");
     const wrappers = printArea.querySelectorAll(".card-wrapper");
 
     try {
-
         if (typeof html2pdf !== "function") {
             alert("PDF library load nahi hui.");
             return;
@@ -832,7 +830,6 @@ async function downloadPDF() {
         const oldStyles = [];
 
         wrappers.forEach((wrapper) => {
-
             oldStyles.push({
                 width: wrapper.style.width,
                 height: wrapper.style.height,
@@ -859,36 +856,30 @@ async function downloadPDF() {
         // Exactly one card per A4 page
         wrappers[0].style.pageBreakAfter = "always";
         wrappers[0].style.breakAfter = "page";
-
         wrappers[1].style.pageBreakAfter = "auto";
         wrappers[1].style.breakAfter = "auto";
 
         await new Promise(resolve => setTimeout(resolve, 500));
 
         const opt = {
-
             margin: 0,
-
             filename: "JNV_ID_Card.pdf",
-
             image: {
                 type: "jpeg",
-                quality: 1
+                quality: 0.98 // Quality ko 1 se 0.98 kiya taki processing fast ho
             },
-
             html2canvas: {
-                scale: 3,
+                scale: 2, // SCALE KO 3 SE 2 KIYA HAI (Mobile RAM crash rokne ke liye)
                 useCORS: true,
                 allowTaint: true,
-                backgroundColor: "#ffffff"
+                backgroundColor: "#ffffff",
+                windowWidth: 1024 // IMPORTANT: Ye mobile ko force karega ki wo desktop ki tarah bada width render kare
             },
-
             jsPDF: {
                 unit: "cm",
                 format: "a4",
                 orientation: "portrait"
             },
-
             pagebreak: {
                 mode: ["css"]
             }
@@ -905,7 +896,6 @@ async function downloadPDF() {
         printArea.style.gap = oldGap;
 
         wrappers.forEach((wrapper, index) => {
-
             wrapper.style.width = oldStyles[index].width;
             wrapper.style.height = oldStyles[index].height;
             wrapper.style.margin = oldStyles[index].margin;
@@ -919,16 +909,10 @@ async function downloadPDF() {
         button.textContent = "Download PDF (2 Pages)";
 
     } catch (error) {
-
         console.error(error);
-
         button.disabled = false;
         button.textContent = "Download PDF (2 Pages)";
-
-        alert(
-            "PDF download nahi ho saka.\n\nError: " +
-            error.message
-        );
+        alert("PDF download nahi ho saka.\n\nError: " + error.message);
     }
 }
     </script>
