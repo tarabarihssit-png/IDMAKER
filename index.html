@@ -843,8 +843,8 @@ async function downloadPDF() {
             wrapper.style.height = "8.6cm";
             wrapper.style.margin = "0";
             wrapper.style.padding = "0";
-            wrapper.style.transform = "scale(0.98)";
-wrapper.style.transformOrigin = "top left";
+            wrapper.style.transform = "scale(1)";
+            wrapper.style.transformOrigin = "top left";
 
             if (index === 0) {
                 wrapper.style.pageBreakAfter = "always";
@@ -882,7 +882,7 @@ wrapper.style.transformOrigin = "top left";
 
             jsPDF: {
                 unit: "cm",
-                format: [5.4, 8.6],
+                format: [5.5, 8.7],
                 orientation: "portrait"
             },
 
