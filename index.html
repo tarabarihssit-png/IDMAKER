@@ -118,6 +118,7 @@
             width: 5.4cm;
             height: 8.6cm;
             box-sizing: border-box;
+            margin: 0 auto;
         }
 
         /* EXACT CARD DIMENSIONS */
@@ -860,7 +861,7 @@ async function downloadPDF() {
         /* Make PDF area exactly 2 cards */
         printArea.style.display = "block";
         printArea.style.gap = "0";
-        printArea.style.width = "5.5cm";
+        printArea.style.width = "21cm";
 
         await new Promise(resolve => setTimeout(resolve, 300));
 
@@ -884,7 +885,7 @@ async function downloadPDF() {
 
             jsPDF: {
                 unit: "cm",
-                format: [5.4, 8.6],
+                format: "a4",
                 orientation: "portrait"
             },
 
