@@ -840,9 +840,11 @@ async function downloadPDF() {
             });
 
             wrapper.style.width = "5.4cm";
-            wrapper.style.height = "8.5cm";
+            wrapper.style.height = "8.6cm";
             wrapper.style.margin = "0";
             wrapper.style.padding = "0";
+            wrapper.style.transform = "scale(0.98)";
+wrapper.style.transformOrigin = "top left";
 
             if (index === 0) {
                 wrapper.style.pageBreakAfter = "always";
