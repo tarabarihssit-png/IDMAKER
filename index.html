@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JNV ID Card Generator</title>
+
+    <!-- html2pdf Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+        }
+
+        body {
+            background-color: #eef2f5;
+            padding: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            justify-content: center;
+        }
+
+        /* =========================
+           FORM SECTION
+        ========================== */
+
+        .form-section {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 420px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .form-section h2 {
+            margin-bottom: 12px;
+            color: #1a365d;
+            border-bottom: 2px solid #3182ce;
+            padding-bottom: 6px;
+            font-size: 18px;
+        }
+
+        .form-section h3 {
+            margin-top: 14px;
+            margin-bottom: 6px;
+            color: #2b6cb0;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-group {
+            margin-bottom: 10px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 3px;
+            font-size: 11px;
+            color: #4a5568;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 7px 10px;
+            border: 1px solid #cbd5e0;
+            border-radius: 5px;
+            font-size: 12px;
+            outline: none;
+        }
+
+        .form-group input:focus {
+            border-color: #3182ce;
+            box-shadow: 0 0 0 2px rgba(49,130,206,0.2);
+        }
+
+        .btn-download {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-top: 18px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .btn-download:hover {
+            background: #218838;
+        }
+
+        /* =========================
+           PREVIEW
+        ========================== */
+
+        .preview-section {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .card-wrapper {
+            page-break-after: always;
+            break-after: page;
+            width: 5.4cm;
+            height: 8.6cm;
+        }
+
+        /* EXACT CARD DIMENSIONS */
+        .id-card {
+            width: 5.4cm;
+            height: 8.6cm;
+            position: relative;
+            background-size: 100% 100%;
+            background-position: center;
+            background-repeat: no-repeat;
+            border: 1px solid #cbd5e0;
+            border-radius: 6px;
+            overflow: hidden;
+            background-color: #ffffff;
+        }
+
+        /* BACKGROUND IMAGES */
+        #front-card {
+            background-image: url('front.jpg');
+        }
+
+        #back-card {
+            background-image: url('back.jpg');
+        }
+
+        .data-img {
+            position: absolute;
+            object-fit: cover;
+        }
+
+        /* =========================
+           FRONT CARD
+        ========================== */
+
+        #cardPhoto {
+            top: 1.7cm;
+            left: 1.8cm;
+            width: 1.8cm;
+            height: 2.1cm;
+            border-radius: 4px;
+            border: 1px dashed #a0aec0;
+            background: #f7fafc;
+        }
+
+        #cardName {
+            position: absolute;
+            top: 3.9cm;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            color: #c53030;
+            font-size: 10px;
+            font-weight: 900;
+            text-transform: uppercase;
+        }
+
+        #cardDesig {
+            position: absolute;
+            top: 4.3cm;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            color: #22543d;
+            font-size: 8px;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        /* FRONT DETAILS */
+
+        .front-details-block {
+            position: absolute;
+            top: 4.7cm;
+            left: 0.4cm;
+            width: 4.6cm;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .detail-row {
+            display: flex;
+            align-items: center;
+            font-size: 7px;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        .front-details-block .lbl {
+            width: 1.8cm;
+            color: #003366;
+        }
+
+        .front-details-block .cln {
+            width: 0.2cm;
+            text-align: center;
+            color: #000;
+        }
+
+        .front-details-block .val {
+            flex: 1;
+            color: #000;
+            font-weight: 800;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* =========================
+           AUTHORITY SIGNATURE
+           FIXED JPG
+        ========================== */
+
+        #cardAuthSign {
+            bottom: .7cm;
+            right: 0.7cm;
+            width: 1.3cm;
+            height: 0.5cm;
+            object-fit: contain;
+        }
+
+        #authSignLabel {
+            position: absolute;
+            bottom: 0.4cm;
+            right: 0.1cm;
+            width: auto;
+            white-space: nowrap;
+            text-align: center;
+            font-size: 7px;
+            font-weight: 700;
+            color: #000;
+            line-height: 1;
+        }
+
+        /* =========================
+           BACK CARD
+        ========================== */
+
+        .back-details-block {
+            position: absolute;
+            top: 1.5cm;
+            left: 0.3cm;
+            width: 4.8cm;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5px;
+        }
+
+        .back-details-block .detail-row {
+            font-size: 7px;
+        }
+
+        .back-details-block .lbl {
+            width: 2.1cm;
+            color: #003366;
+        }
+
+        .back-details-block .cln {
+            width: 0.2cm;
+            text-align: center;
+            color: #000;
+        }
+
+        .back-details-block .val {
+            flex: 1;
+            color: #000;
+            font-weight: 800;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* =========================
+           EMPLOYEE SIGNATURE
+        ========================== */
+
+        #cardEmpSign {
+            bottom: 2.3cm;
+            right: 0.4cm;
+            width: 1.3cm;
+            height: 0.5cm;
+            object-fit: contain;
+        }
+
+        #empSignLabel {
+            position: absolute;
+            bottom: 2cm;
+            right: 0.15cm;
+            width: 1.8cm;
+            text-align: center;
+            font-size: 7px;
+            font-weight: 700;
+            color: #000;
+            line-height: 1;
+        }
+
+        /* =========================
+           MOBILE
+        ========================== */
+
+        @media (max-width: 600px) {
+
+            body {
+                padding: 10px;
+                gap: 20px;
+            }
+
+            .form-section {
+                max-width: 100%;
+                padding: 18px;
+                max-height: none;
+            }
+
+            .preview-section {
+                align-items: center;
+                width: 100%;
+            }
+        }
+
+    </style>
+</head>
+
+<body>
+
+    <!-- =========================
+         FORM SECTION
+    ========================== -->
+
+    <div class="form-section">
+
+        <h2>ID Card Generator</h2>
+
+        <!-- EMPLOYEE PHOTO & SIGNATURE -->
+
+        <h3>1. Upload Photo & Signature</h3>
+
+        <div class="form-group">
+            <label>Employee Photo:</label>
+            <input
+                type="file"
+                accept="image/*"
+                onchange="previewImage(event, 'cardPhoto')"
+            >
+        </div>
+
+        <div class="form-group">
+            <label>Employee Signature:</label>
+            <input
+                type="file"
+                accept="image/*"
+                onchange="previewImage(event, 'cardEmpSign')"
+            >
+        </div>
+
+
+        <!-- FRONT DETAILS -->
+
+        <h3>2. Front Details</h3>
+
+        <div class="form-group">
+            <label>Name:</label>
+            <input
+                type="text"
+                id="inpName"
+                oninput="updateText('inpName', 'cardName')"
+            >
+        </div>
+
+        <div class="form-group">
+            <label>Designation:</label>
+            <input
+                type="text"
+                id="inpDesig"
+                oninput="updateText('inpDesig', 'cardDesig')"
+            >
+        </div>
+
+        <div class="form-group">
+            <label>PIS ID:</label>
+            <input
+                type="text"
+                id="inpPis"
+                oninput="updateText('inpPis', 'cardPis')"
+            >
+        </div>
+
+        <div class="form-group">
+            <label>Date of Birth:</label>
+            <input
+                type="text"
+                id="inpDob"
+                oninput="updateText('inpDob', 'cardDob')"
+            >
+        </div>
+
+        <div class="form-group">
+            <label>Father's Name:</label>
+            <input
+                type="text"
+                id="inpFather"
+                oninput="updateText('inpFather', 'cardFather')"
+            >
+        </div>
+
+        <div class="form-group">
+            <label>Contact No.:</label>
+            <input
+                type="text"
+                id="inpContact"
+                oninput="updateText('inpContact', 'cardContact')"
+            >
+        </div>
+
+        <div class="form-group">
+            <label>ID No.:</label>
+            <input
+                type="text"
+                id="inpIdNo"
+                oninput="updateText('inpIdNo', 'cardIdNo')"
+            >
+        </div>
+
+        <div class="form-group">
+            <label>Valid Upto:</label>
+            <input
+                type="text"
+                id="inpValid"
+                oninput="updateText('inpValid', 'cardValid')"
+            >
+        </div>
+
+
+        <!-- BACK DETAILS -->
+
+        <h3>3. Back Details</h3>
+
+        <div class="form-group">
+            <label>Blood Group:</label>
+            <input
+                type="text"
+                id="inpBlood"
+                oninput="updateText('inpBlood', 'cardBlood')"
+            >
+        </div>
+
+        <div class="form-group">
+            <label>OASIS ID:</label>
+            <input
+                type="text"
+                id="inpOasis"
+                oninput="updateText('inpOasis', 'cardOasis')"
+            >
+        </div>
+
+        <div class="form-group">
+            <label>UDISE+ ID:</label>
+            <input
+                type="text"
+                id="inpUdise"
+                oninput="updateText('inpUdise', 'cardUdise')"
+            >
+        </div>
+
+        <div class="form-group">
+            <label>AADHAR NO:</label>
+            <input
+                type="text"
+                id="inpAadhar"
+                oninput="updateText('inpAadhar', 'cardAadhar')"
+            >
+        </div>
+
+        <div class="form-group">
+            <label>DOJ Samiti:</label>
+            <input
+                type="text"
+                id="inpDojSamiti"
+                oninput="updateText('inpDojSamiti', 'cardDojSamiti')"
+            >
+        </div>
+
+        <div class="form-group">
+            <label>DOJ School:</label>
+            <input
+                type="text"
+                id="inpDojSchool"
+                oninput="updateText('inpDojSchool', 'cardDojSchool')"
+            >
+        </div>
+
+        <div class="form-group">
+            <label>Address:</label>
+            <input
+                type="text"
+                id="inpAddress"
+                oninput="updateText('inpAddress', 'cardAddress')"
+            >
+        </div>
+
+        <div class="form-group">
+            <label>P.O.:</label>
+            <input
+                type="text"
+                id="inpPo"
+                oninput="updateText('inpPo', 'cardPo')"
+            >
+        </div>
+
+        <div class="form-group">
+            <label>Dist.:</label>
+            <input
+                type="text"
+                id="inpDist"
+                oninput="updateText('inpDist', 'cardDist')"
+            >
+        </div>
+
+        <div class="form-group">
+            <label>State:</label>
+            <input
+                type="text"
+                id="inpState"
+                oninput="updateText('inpState', 'cardState')"
+            >
+        </div>
+
+        <div class="form-group">
+            <label>Pin.:</label>
+            <input
+                type="text"
+                id="inpPin"
+                oninput="updateText('inpPin', 'cardPin')"
+            >
+        </div>
+
+        <div class="form-group">
+            <label>E-mail:</label>
+            <input
+                type="text"
+                id="inpEmail"
+                oninput="updateText('inpEmail', 'cardEmail')"
+            >
+        </div>
+
+        <div class="form-group">
+            <label>Identification Mark:</label>
+            <input
+                type="text"
+                id="inpMark"
+                oninput="updateText('inpMark', 'cardMark')"
+            >
+        </div>
+
+
+        <!-- DOWNLOAD -->
+
+        <button class="btn-download" onclick="downloadPDF()">
+            Download PDF (2 Pages)
+        </button>
+
+    </div>
+
+
+    <!-- =========================
+         LIVE PREVIEW
+    ========================== -->
+
+    <div class="preview-section" id="print-area">
+
+        <!-- FRONT CARD -->
+
+        <div class="card-wrapper">
+
+            <div class="id-card" id="front-card">
+
+                <!-- EMPLOYEE PHOTO -->
+                <img
+                    id="cardPhoto"
+                    class="data-img"
+                    src=""
+                    alt="Employee Photo"
+                >
+
+                <div id="cardName"></div>
+
+                <div id="cardDesig"></div>
+
+
+                <div class="front-details-block">
+
+                    <div class="detail-row">
+                        <span class="lbl">PIS ID</span>
+                        <span class="cln">:</span>
+                        <span id="cardPis" class="val"></span>
+                    </div>
+
+                    <div class="detail-row">
+                        <span class="lbl">Date of Birth</span>
+                        <span class="cln">:</span>
+                        <span id="cardDob" class="val"></span>
+                    </div>
+
+                    <div class="detail-row">
+                        <span class="lbl">Father's Name</span>
+                        <span class="cln">:</span>
+                        <span id="cardFather" class="val"></span>
+                    </div>
+
+                    <div class="detail-row">
+                        <span class="lbl">Contact No.</span>
+                        <span class="cln">:</span>
+                        <span id="cardContact" class="val"></span>
+                    </div>
+
+                    <div class="detail-row">
+                        <span class="lbl">ID No.</span>
+                        <span class="cln">:</span>
+                        <span id="cardIdNo" class="val"></span>
+                    </div>
+
+                    <div class="detail-row">
+                        <span class="lbl">Valid Upto</span>
+                        <span class="cln">:</span>
+                        <span id="cardValid" class="val"></span>
+                    </div>
+
+                </div>
+
+
+                <!-- FIXED AUTHORITY SIGNATURE -->
+
+                <img
+                    id="cardAuthSign"
+                    class="data-img"
+                    src="authority-sign.jpg"
+                    alt="Authority Signature"
+                >
+
+                <div id="authSignLabel">
+                    Sign. of Issuing Authority
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- BACK CARD -->
+
+        <div class="card-wrapper">
+
+            <div class="id-card" id="back-card">
+
+                <div class="back-details-block">
+
+                    <div class="detail-row">
+                        <span class="lbl">Blood Group</span>
+                        <span class="cln">:</span>
+                        <span id="cardBlood" class="val"></span>
+                    </div>
+
+                    <div class="detail-row">
+                        <span class="lbl">OASIS ID</span>
+                        <span class="cln">:</span>
+                        <span id="cardOasis" class="val"></span>
+                    </div>
+
+                    <div class="detail-row">
+                        <span class="lbl">UDISE+ ID</span>
+                        <span class="cln">:</span>
+                        <span id="cardUdise" class="val"></span>
+                    </div>
+
+                    <div class="detail-row">
+                        <span class="lbl">AADHAR NO</span>
+                        <span class="cln">:</span>
+                        <span id="cardAadhar" class="val"></span>
+                    </div>
+
+                    <div class="detail-row">
+                        <span class="lbl">DOJ in Samiti</span>
+                        <span class="cln">:</span>
+                        <span id="cardDojSamiti" class="val"></span>
+                    </div>
+
+                    <div class="detail-row">
+                        <span class="lbl">DOJ in School</span>
+                        <span class="cln">:</span>
+                        <span id="cardDojSchool" class="val"></span>
+                    </div>
+
+                    <div class="detail-row">
+                        <span class="lbl">Address</span>
+                        <span class="cln">:</span>
+                        <span id="cardAddress" class="val"></span>
+                    </div>
+
+                    <div class="detail-row">
+                        <span class="lbl">P.O.</span>
+                        <span class="cln">:</span>
+                        <span id="cardPo" class="val"></span>
+                    </div>
+
+                    <div class="detail-row">
+                        <span class="lbl">Dist.</span>
+                        <span class="cln">:</span>
+                        <span id="cardDist" class="val"></span>
+                    </div>
+
+                    <div class="detail-row">
+                        <span class="lbl">State</span>
+                        <span class="cln">:</span>
+                        <span id="cardState" class="val"></span>
+                    </div>
+
+                    <div class="detail-row">
+                        <span class="lbl">Pin</span>
+                        <span class="cln">:</span>
+                        <span id="cardPin" class="val"></span>
+                    </div>
+
+                    <div class="detail-row">
+                        <span class="lbl">E-mail ID</span>
+                        <span class="cln">:</span>
+                        <span id="cardEmail" class="val"></span>
+                    </div>
+
+                    <div class="detail-row">
+                        <span class="lbl">Identification Mark</span>
+                        <span class="cln">:</span>
+                        <span id="cardMark" class="val"></span>
+                    </div>
+
+                </div>
+
+
+                <!-- EMPLOYEE SIGNATURE -->
+
+                <img
+                    id="cardEmpSign"
+                    class="data-img"
+                    src=""
+                    alt="Employee Signature"
+                >
+
+                <div id="empSignLabel">
+                    Sign. of Employee
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =========================
+         JAVASCRIPT
+    ========================== -->
+
+    <script>
+
+        function updateText(inputId, elementId) {
+
+            let val = document.getElementById(inputId).value;
+
+            if (
+                elementId === 'cardName' ||
+                elementId === 'cardDesig'
+            ) {
+                val = val.toUpperCase();
+            }
+
+            document.getElementById(elementId).innerText = val;
+        }
+
+
+        function previewImage(event, imageId) {
+
+            const file = event.target.files[0];
+
+            if (file) {
+                document.getElementById(imageId).src =
+                    URL.createObjectURL(file);
+            }
+        }
+
+
+async function downloadPDF() {
+
+    const button = document.querySelector(".btn-download");
+
+    try {
+
+        // Check html2pdf library
+        if (typeof html2pdf !== "function") {
+            alert("PDF library load nahi hui. Internet check karke page refresh karein.");
+            return;
+        }
+
+        const element = document.getElementById("print-area");
+
+        if (!element) {
+            alert("Print area nahi mila.");
+            return;
+        }
+
+        button.disabled = true;
+        button.textContent = "GENERATING PDF...";
+
+        const opt = {
+            margin: 0,
+
+            filename: "JNV_ID_Card.pdf",
+
+            image: {
+                type: "jpeg",
+                quality: 1
+            },
+
+            html2canvas: {
+                scale: 3,
+                useCORS: true,
+                allowTaint: false,
+                backgroundColor: "#ffffff"
+            },
+
+            jsPDF: {
+                unit: "cm",
+                format: [5.4, 8.6],
+                orientation: "portrait"
+            },
+
+            pagebreak: {
+                mode: ["css", "legacy"]
+            }
+        };
+
+        await html2pdf()
+            .set(opt)
+            .from(element)
+            .save();
+
+        button.disabled = false;
+        button.textContent = "Download PDF (2 Pages)";
+
+    } catch (error) {
+
+        console.error(error);
+
+        button.disabled = false;
+        button.textContent = "Download PDF (2 Pages)";
+
+        alert(
+            "PDF download nahi ho saka.\n\n" +
+            "Error: " + error.message
+        );
+    }
+}
+
+    </script>
+
+</body>
+</html>
