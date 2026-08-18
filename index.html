@@ -811,54 +811,94 @@ async function downloadPDF() {
 
     try {
 
-        // Check html2pdf library
-        if (typeof html2pdf !== "function") {
-            alert("PDF library load nahi hui. Internet check karke page refresh karein.");
+        if (typeof html2canvas !== "function") {
+            alert("html2canvas library load nahi hui.");
             return;
         }
 
-        const element = document.getElementById("print-area");
+        if (typeof html2pdf !== "function") {
+            alert("PDF library load nahi hui.");
+            return;
+        }
 
-        if (!element) {
-            alert("Print area nahi mila.");
+        const front = document.getElementById("front-card");
+        const back = document.getElementById("back-card");
+
+        if (!front || !back) {
+            alert("Front/Back card nahi mila.");
             return;
         }
 
         button.disabled = true;
         button.textContent = "GENERATING PDF...";
 
-        const opt = {
+        const canvasOptions = {
+            scale: 3,
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: "#ffffff",
+            logging: false
+        };
+
+        // FRONT CARD
+        const frontCanvas = await html2canvas(
+            front,
+            canvasOptions
+        );
+
+        // BACK CARD
+        const backCanvas = await html2canvas(
+            back,
+            canvasOptions
+        );
+
+        // Create PDF using html2pdf/jsPDF
+        const pdfWorker = html2pdf().set({
             margin: 0,
-
             filename: "JNV_ID_Card.pdf",
-
             image: {
                 type: "jpeg",
                 quality: 1
             },
-
-            html2canvas: {
-                scale: 3,
-                useCORS: true,
-                allowTaint: false,
-                backgroundColor: "#ffffff"
-            },
-
             jsPDF: {
                 unit: "cm",
                 format: [5.4, 8.6],
                 orientation: "portrait"
-            },
-
-            pagebreak: {
-                mode: ["css", "legacy"]
             }
-        };
+        });
 
-        await html2pdf()
-            .set(opt)
-            .from(element)
-            .save();
+        const pdf = await pdfWorker
+            .from(frontCanvas)
+            .toPdf()
+            .get("pdf");
+
+        // PAGE 1 = FRONT
+        pdf.deletePage(1);
+
+        pdf.addPage([5.4, 8.6], "portrait");
+
+        pdf.addImage(
+            frontCanvas.toDataURL("image/jpeg", 1),
+            "JPEG",
+            0,
+            0,
+            5.4,
+            8.6
+        );
+
+        // PAGE 2 = BACK
+        pdf.addPage([5.4, 8.6], "portrait");
+
+        pdf.addImage(
+            backCanvas.toDataURL("image/jpeg", 1),
+            "JPEG",
+            0,
+            0,
+            5.4,
+            8.6
+        );
+
+        pdf.save("JNV_ID_Card.pdf");
 
         button.disabled = false;
         button.textContent = "Download PDF (2 Pages)";
