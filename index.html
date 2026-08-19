@@ -1103,15 +1103,21 @@
                 }
 
                 drawTextFit(
-                    ctx,
-                    "Sign. of Employee",
-                    W - X(0.15),
-                    H - Y(2) + Y(0.035),
-                    X(1.8),
-                    "700 " + (7 * pxScale) + "px Arial",
-                    "#000000",
-                    "center"
-                );
+    ctx,
+    "Sign. of Employee",
+
+    // CSS: right: 0.15cm; width: 1.8cm;
+    // Center = right edge - half width
+    W - X(0.15) - X(0.9),
+
+    H - Y(2) + Y(0.035),
+
+    X(1.8),
+
+    "700 " + (7 * pxScale) + "px Arial",
+    "#000000",
+    "center"
+);
             }
 
             return canvas;
