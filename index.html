@@ -5,8 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JNV ID Card Generator</title>
 
-    <!-- html2canvas Library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <style>
         * {
@@ -783,136 +781,518 @@
     <script>
 
         function updateText(inputId, elementId) {
-
             let val = document.getElementById(inputId).value;
 
-            if (
-                elementId === 'cardName' ||
-                elementId === 'cardDesig'
-            ) {
+            if (elementId === 'cardName' || elementId === 'cardDesig') {
                 val = val.toUpperCase();
             }
 
             document.getElementById(elementId).innerText = val;
         }
 
-
         function previewImage(event, imageId) {
-
             const file = event.target.files[0];
+            if (!file) return;
 
-            if (file) {
-                document.getElementById(imageId).src =
-                    URL.createObjectURL(file);
+            const image = document.getElementById(imageId);
+
+            if (image.dataset.objectUrl) {
+                URL.revokeObjectURL(image.dataset.objectUrl);
+            }
+
+            const objectUrl = URL.createObjectURL(file);
+            image.dataset.objectUrl = objectUrl;
+            image.src = objectUrl;
+        }
+
+        function loadImage(src) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+
+                img.onload = () => resolve(img);
+                img.onerror = () => reject(new Error("Image load failed: " + src));
+
+                if (src.startsWith("blob:") || src.startsWith("data:")) {
+                    img.src = src;
+                } else {
+                    img.src = src + (src.includes("?") ? "&" : "?") + "v=" + Date.now();
+                }
+            });
+        }
+
+        function getBackgroundUrl(card) {
+            const bg = getComputedStyle(card).backgroundImage;
+            const match = bg.match(/url\(["']?(.*?)["']?\)/);
+
+            if (!match) {
+                throw new Error("Card background image nahi mila.");
+            }
+
+            return match[1];
+        }
+
+        function cmToPx(cm, dpi) {
+            return cm * dpi / 2.54;
+        }
+
+        function getTextValue(id) {
+            return document.getElementById(id)?.innerText || "";
+        }
+
+        function drawTextFit(ctx, text, x, y, maxWidth, font, color, align = "left") {
+            ctx.font = font;
+            ctx.fillStyle = color;
+            ctx.textAlign = align;
+            ctx.textBaseline = "middle";
+
+            if (!text) return;
+
+            let currentFont = font;
+            let sizeMatch = currentFont.match(/(\d+(?:\.\d+)?)px/);
+            let size = sizeMatch ? parseFloat(sizeMatch[1]) : 24;
+
+            while (ctx.measureText(text).width > maxWidth && size > 8) {
+                size -= 0.5;
+                currentFont = currentFont.replace(/(\d+(?:\.\d+)?)px/, size + "px");
+                ctx.font = currentFont;
+            }
+
+            ctx.fillText(text, x, y);
+        }
+
+        function drawCoverImage(ctx, img, x, y, w, h) {
+            const sourceRatio = img.naturalWidth / img.naturalHeight;
+            const targetRatio = w / h;
+
+            let sx = 0;
+            let sy = 0;
+            let sw = img.naturalWidth;
+            let sh = img.naturalHeight;
+
+            if (sourceRatio > targetRatio) {
+                sw = img.naturalHeight * targetRatio;
+                sx = (img.naturalWidth - sw) / 2;
+            } else if (sourceRatio < targetRatio) {
+                sh = img.naturalWidth / targetRatio;
+                sy = (img.naturalHeight - sh) / 2;
+            }
+
+            ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+        }
+
+        function drawContainImage(ctx, img, x, y, w, h) {
+            const ratio = Math.min(
+                w / img.naturalWidth,
+                h / img.naturalHeight
+            );
+
+            const dw = img.naturalWidth * ratio;
+            const dh = img.naturalHeight * ratio;
+
+            const dx = x + (w - dw) / 2;
+            const dy = y + (h - dh) / 2;
+
+            ctx.drawImage(img, dx, dy, dw, dh);
+        }
+
+        async function createCardCanvas(cardType, dpi = 300) {
+
+            const W = Math.round(cmToPx(5.4, dpi));
+            const H = Math.round(cmToPx(8.6, dpi));
+
+            const canvas = document.createElement("canvas");
+            canvas.width = W;
+            canvas.height = H;
+
+            const ctx = canvas.getContext("2d", {
+                alpha: false
+            });
+
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = "high";
+
+            const card = document.getElementById(
+                cardType === "front" ? "front-card" : "back-card"
+            );
+
+            const backgroundUrl = getBackgroundUrl(card);
+            const background = await loadImage(backgroundUrl);
+
+            /*
+             * IMPORTANT:
+             * Background is drawn directly from the original image.
+             * No html2canvas / screenshot conversion.
+             */
+            ctx.drawImage(background, 0, 0, W, H);
+
+            const sx = W / 5.4;
+            const sy = H / 8.6;
+
+            function X(cm) {
+                return cm * sx;
+            }
+
+            function Y(cm) {
+                return cm * sy;
+            }
+
+            if (cardType === "front") {
+
+                /* Employee photo */
+                const photo = document.getElementById("cardPhoto");
+
+                if (photo.src && photo.src !== location.href) {
+                    try {
+                        const photoImg = await loadImage(photo.src);
+
+                        drawCoverImage(
+                            ctx,
+                            photoImg,
+                            X(1.8),
+                            Y(2.2),
+                            X(1.8),
+                            Y(2.1)
+                        );
+                    } catch (e) {
+                        console.warn("Employee photo skipped:", e);
+                    }
+                }
+
+                /* Name */
+                drawTextFit(
+                    ctx,
+                    getTextValue("cardName"),
+                    W / 2,
+                    Y(3.9 + 0.17),
+                    W - X(0.4),
+                    "900 10px Arial",
+                    "#c53030",
+                    "center"
+                );
+
+                /* Designation */
+                drawTextFit(
+                    ctx,
+                    getTextValue("cardDesig"),
+                    W / 2,
+                    Y(4.3 + 0.14),
+                    W - X(0.4),
+                    "800 8px Arial",
+                    "#22543d",
+                    "center"
+                );
+
+                const frontRows = [
+                    ["PIS ID", "cardPis"],
+                    ["Date of Birth", "cardDob"],
+                    ["Father's Name", "cardFather"],
+                    ["Contact No.", "cardContact"],
+                    ["ID No.", "cardIdNo"],
+                    ["Valid Upto", "cardValid"]
+                ];
+
+                drawDetails(
+                    ctx,
+                    frontRows,
+                    X(0.4),
+                    Y(4.7),
+                    X(4.6),
+                    sx,
+                    {
+                        labelWidth: X(1.8),
+                        fontSize: 7,
+                        gap: 2,
+                        labelColor: "#003366"
+                    }
+                );
+
+                /* Authority signature */
+                try {
+                    const auth = document.getElementById("cardAuthSign");
+                    const authImg = await loadImage(auth.src);
+
+                    drawContainImage(
+                        ctx,
+                        authImg,
+                        W - X(0.7) - X(1.3),
+                        H - Y(0.7) - Y(0.5),
+                        X(1.3),
+                        Y(0.5)
+                    );
+                } catch (e) {
+                    console.warn("Authority signature skipped:", e);
+                }
+
+                drawTextFit(
+                    ctx,
+                    "Sign. of Issuing Authority",
+                    W - X(0.1),
+                    H - Y(0.4) + Y(0.035),
+                    X(2.2),
+                    "700 7px Arial",
+                    "#000000",
+                    "right"
+                );
+
+            } else {
+
+                const backRows = [
+                    ["Blood Group", "cardBlood"],
+                    ["OASIS ID", "cardOasis"],
+                    ["UDISE+ ID", "cardUdise"],
+                    ["AADHAR NO", "cardAadhar"],
+                    ["DOJ in Samiti", "cardDojSamiti"],
+                    ["DOJ in School", "cardDojSchool"],
+                    ["Address", "cardAddress"],
+                    ["P.O.", "cardPo"],
+                    ["Dist.", "cardDist"],
+                    ["State", "cardState"],
+                    ["Pin", "cardPin"],
+                    ["E-mail ID", "cardEmail"],
+                    ["Identification Mark", "cardMark"]
+                ];
+
+                drawDetails(
+                    ctx,
+                    backRows,
+                    X(0.3),
+                    Y(1.5),
+                    X(4.8),
+                    sx,
+                    {
+                        labelWidth: X(2.1),
+                        fontSize: 7,
+                        gap: 1.5,
+                        labelColor: "#003366"
+                    }
+                );
+
+                /* Employee signature */
+                const emp = document.getElementById("cardEmpSign");
+
+                if (emp.src && emp.src !== location.href) {
+                    try {
+                        const empImg = await loadImage(emp.src);
+
+                        drawContainImage(
+                            ctx,
+                            empImg,
+                            W - X(0.4) - X(1.3),
+                            H - Y(2.3) - Y(0.5),
+                            X(1.3),
+                            Y(0.5)
+                        );
+                    } catch (e) {
+                        console.warn("Employee signature skipped:", e);
+                    }
+                }
+
+                drawTextFit(
+                    ctx,
+                    "Sign. of Employee",
+                    W - X(0.15),
+                    H - Y(2) + Y(0.035),
+                    X(1.8),
+                    "700 7px Arial",
+                    "#000000",
+                    "center"
+                );
+            }
+
+            return canvas;
+        }
+
+        function drawDetails(ctx, rows, left, top, totalWidth, scale, options) {
+
+            const labelWidth = options.labelWidth;
+            const colonWidth = 0.2 * scale;
+            const valueWidth = totalWidth - labelWidth - colonWidth;
+
+            const fontSize = options.fontSize * scale;
+            const lineHeight = fontSize * 1.2;
+            const gap = options.gap * scale;
+
+            rows.forEach((row, index) => {
+
+                const y =
+                    top +
+                    index * (lineHeight + gap) +
+                    lineHeight / 2;
+
+                const label = row[0];
+                const value = getTextValue(row[1]);
+
+                ctx.textBaseline = "middle";
+
+                ctx.font = `700 ${fontSize}px Arial`;
+                ctx.fillStyle = options.labelColor;
+                ctx.textAlign = "left";
+
+                ctx.fillText(
+                    label,
+                    left,
+                    y
+                );
+
+                ctx.font = `700 ${fontSize}px Arial`;
+                ctx.fillStyle = "#000000";
+                ctx.textAlign = "center";
+
+                ctx.fillText(
+                    ":",
+                    left + labelWidth + colonWidth / 2,
+                    y
+                );
+
+                ctx.font = `800 ${fontSize}px Arial`;
+                ctx.fillStyle = "#000000";
+                ctx.textAlign = "left";
+
+                let finalValue = value;
+                const maxWidth = valueWidth - 2;
+
+                while (
+                    ctx.measureText(finalValue).width > maxWidth &&
+                    finalValue.length > 1
+                ) {
+                    finalValue = finalValue.substring(
+                        0,
+                        finalValue.length - 1
+                    );
+                }
+
+                if (finalValue !== value) {
+                    finalValue = finalValue.substring(
+                        0,
+                        Math.max(0, finalValue.length - 1)
+                    ) + "…";
+                }
+
+                ctx.fillText(
+                    finalValue,
+                    left + labelWidth + colonWidth,
+                    y
+                );
+            });
+        }
+
+        async function downloadCanvasJPG(canvas, filename) {
+
+            return new Promise((resolve, reject) => {
+
+                canvas.toBlob(
+                    blob => {
+
+                        if (!blob) {
+                            reject(
+                                new Error("JPG create nahi ho saka.")
+                            );
+                            return;
+                        }
+
+                        const url =
+                            URL.createObjectURL(blob);
+
+                        const link =
+                            document.createElement("a");
+
+                        link.href = url;
+                        link.download = filename;
+
+                        document.body.appendChild(link);
+                        link.click();
+                        link.remove();
+
+                        setTimeout(() => {
+                            URL.revokeObjectURL(url);
+                            resolve();
+                        }, 500);
+                    },
+
+                    "image/jpeg",
+
+                    1.0
+                );
+            });
+        }
+
+        async function downloadJPG() {
+
+            const button =
+                document.querySelector(".btn-download");
+
+            const nameInput =
+                document.getElementById("inpName");
+
+            try {
+
+                button.disabled = true;
+                button.textContent =
+                    "GENERATING HIGH QUALITY JPG...";
+
+                let employeeName =
+                    nameInput
+                        ? nameInput.value.trim()
+                        : "";
+
+                if (!employeeName) {
+                    employeeName = "Employee";
+                }
+
+                employeeName =
+                    employeeName
+                        .replace(/[\\/:*?"<>|]/g, "")
+                        .replace(/\s+/g, "_");
+
+                /*
+                 * 300 DPI:
+                 *
+                 * 5.4 cm = approximately 638 px
+                 * 8.6 cm = approximately 1016 px
+                 *
+                 * This is excellent for ID-card printing.
+                 */
+
+                const frontCanvas =
+                    await createCardCanvas("front", 300);
+
+                await downloadCanvasJPG(
+                    frontCanvas,
+                    employeeName + "_Front.jpg"
+                );
+
+                const backCanvas =
+                    await createCardCanvas("back", 300);
+
+                await downloadCanvasJPG(
+                    backCanvas,
+                    employeeName + "_Back.jpg"
+                );
+
+                button.disabled = false;
+                button.textContent =
+                    "Download JPG (Front + Back)";
+
+                alert(
+                    "Front & Back high-quality JPG successfully downloaded."
+                );
+
+            } catch (error) {
+
+                console.error(error);
+
+                button.disabled = false;
+                button.textContent =
+                    "Download JPG (Front + Back)";
+
+                alert(
+                    "JPG download nahi ho saka.\n\n" +
+                    "Error: " +
+                    error.message
+                );
             }
         }
 
-
-async function downloadJPG() {
-
-    const button = document.querySelector(".btn-download");
-    const frontCard = document.getElementById("front-card");
-    const backCard = document.getElementById("back-card");
-    const nameInput = document.getElementById("inpName");
-
-    try {
-
-        if (typeof html2canvas !== "function") {
-            alert("Image library load nahi hui. Internet check karke page refresh karein.");
-            return;
-        }
-
-        if (!frontCard || !backCard) {
-            alert("Front ya Back card nahi mila.");
-            return;
-        }
-
-        button.disabled = true;
-        button.textContent = "GENERATING JPG...";
-
-        let employeeName = nameInput ? nameInput.value.trim() : "";
-
-        if (!employeeName) {
-            employeeName = "Employee";
-        }
-
-        employeeName = employeeName
-            .replace(/[\\/:*?"<>|]/g, "")
-            .replace(/\s+/g, "_");
-
-        async function waitForImages(card) {
-
-            const images = card.querySelectorAll("img");
-
-            await Promise.all(
-                Array.from(images).map(img => {
-
-                    if (img.complete) {
-                        return Promise.resolve();
-                    }
-
-                    return new Promise(resolve => {
-                        img.onload = resolve;
-                        img.onerror = resolve;
-                    });
-
-                })
-            );
-        }
-
-        async function downloadCard(card, filename) {
-
-            await waitForImages(card);
-
-            const canvas = await html2canvas(card, {
-                scale: 8,
-                useCORS: true,
-                allowTaint: false,
-                backgroundColor: "#ffffff",
-                logging: false,
-                imageTimeout: 15000,
-                scrollX: 0,
-                scrollY: 0
-            });
-
-            const link = document.createElement("a");
-
-            link.download = filename;
-            link.href = canvas.toDataURL("image/png");
-
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-
-            await new Promise(resolve => setTimeout(resolve, 700));
-        }
-
-        await downloadCard(
-            frontCard,
-            employeeName + "_Front.jpg"
-        );
-
-        await downloadCard(
-            backCard,
-            employeeName + "_Back.jpg"
-        );
-
-        button.disabled = false;
-        button.textContent = "Download JPG (Front + Back)";
-
-    } catch (error) {
-
-        console.error(error);
-
-        button.disabled = false;
-        button.textContent = "Download JPG (Front + Back)";
-
-        alert(
-            "JPG download nahi ho saka.\n\nError: " +
-            error.message
-        );
-    }
-}
     </script>
 
 </body>
