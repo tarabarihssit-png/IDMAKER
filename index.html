@@ -807,28 +807,37 @@
 
         function loadImage(src) {
             return new Promise((resolve, reject) => {
+                if (!src) {
+                    reject(new Error("Image source missing"));
+                    return;
+                }
+
                 const img = new Image();
 
                 img.onload = () => resolve(img);
                 img.onerror = () => reject(new Error("Image load failed: " + src));
 
-                if (src.startsWith("blob:") || src.startsWith("data:")) {
+                // Employee uploads are data/blob URLs.
+                // Background/signature files are relative files on the same
+                // GitHub Pages site, so DO NOT fetch() them. Direct loading
+                // avoids the mobile/GitHub "Failed to fetch" problem.
+                if (src.startsWith("data:") || src.startsWith("blob:")) {
                     img.src = src;
                 } else {
-                    img.src = src + (src.includes("?") ? "&" : "?") + "v=" + Date.now();
+                    img.src = new URL(src, document.baseURI).href;
                 }
             });
         }
 
         function getBackgroundUrl(card) {
-            const bg = getComputedStyle(card).backgroundImage;
-            const match = bg.match(/url\(["']?(.*?)["']?\)/);
-
-            if (!match) {
-                throw new Error("Card background image nahi mila.");
+            if (!card) {
+                throw new Error("Card not found.");
             }
 
-            return match[1];
+            if (card.id === "front-card") return "front.jpg";
+            if (card.id === "back-card") return "back.jpg";
+
+            throw new Error("Background image nahi mila.");
         }
 
         function cmToPx(cm, dpi) {
@@ -839,19 +848,21 @@
             return document.getElementById(id)?.innerText || "";
         }
 
-        function drawTextFit(ctx, text, x, y, maxWidth, font, color, align = "left") {
-            ctx.font = font;
+        function drawTextFit(ctx, text, x, y, maxWidth, font, color, align = "left", minSize = 8) {
+            if (!text) return;
+
             ctx.fillStyle = color;
             ctx.textAlign = align;
             ctx.textBaseline = "middle";
 
-            if (!text) return;
-
             let currentFont = font;
             let sizeMatch = currentFont.match(/(\d+(?:\.\d+)?)px/);
             let size = sizeMatch ? parseFloat(sizeMatch[1]) : 24;
+            const minimum = Math.max(4, minSize);
 
-            while (ctx.measureText(text).width > maxWidth && size > 8) {
+            ctx.font = currentFont;
+
+            while (ctx.measureText(text).width > maxWidth && size > minimum) {
                 size -= 0.5;
                 currentFont = currentFont.replace(/(\d+(?:\.\d+)?)px/, size + "px");
                 ctx.font = currentFont;
@@ -936,6 +947,10 @@
                 return cm * sy;
             }
 
+            // CSS text is specified in px at 96 CSS-DPI.
+            // Convert those sizes to the actual export canvas DPI.
+            const pxScale = dpi / 96;
+
             if (cardType === "front") {
 
                 /* Employee photo */
@@ -965,7 +980,7 @@
                     W / 2,
                     Y(3.9 + 0.17),
                     W - X(0.4),
-                    "900 10px Arial",
+                    "900 " + (10 * pxScale) + "px Arial",
                     "#c53030",
                     "center"
                 );
@@ -977,7 +992,7 @@
                     W / 2,
                     Y(4.3 + 0.14),
                     W - X(0.4),
-                    "800 8px Arial",
+                    "800 " + (8 * pxScale) + "px Arial",
                     "#22543d",
                     "center"
                 );
@@ -1029,7 +1044,7 @@
                     W - X(0.1),
                     H - Y(0.4) + Y(0.035),
                     X(2.2),
-                    "700 7px Arial",
+                    "700 " + (7 * pxScale) + "px Arial",
                     "#000000",
                     "right"
                 );
@@ -1093,7 +1108,7 @@
                     W - X(0.15),
                     H - Y(2) + Y(0.035),
                     X(1.8),
-                    "700 7px Arial",
+                    "700 " + (7 * pxScale) + "px Arial",
                     "#000000",
                     "center"
                 );
@@ -1108,9 +1123,11 @@
             const colonWidth = 0.2 * scale;
             const valueWidth = totalWidth - labelWidth - colonWidth;
 
-            const fontSize = options.fontSize * scale;
+            // 'scale' is px-per-cm. Convert CSS px to canvas px.
+            const cssScale = scale / (96 / 2.54);
+            const fontSize = options.fontSize * cssScale;
             const lineHeight = fontSize * 1.2;
-            const gap = options.gap * scale;
+            const gap = options.gap * cssScale;
 
             rows.forEach((row, index) => {
 
@@ -1127,22 +1144,12 @@
                 ctx.font = `700 ${fontSize}px Arial`;
                 ctx.fillStyle = options.labelColor;
                 ctx.textAlign = "left";
-
-                ctx.fillText(
-                    label,
-                    left,
-                    y
-                );
+                ctx.fillText(label, left, y);
 
                 ctx.font = `700 ${fontSize}px Arial`;
                 ctx.fillStyle = "#000000";
                 ctx.textAlign = "center";
-
-                ctx.fillText(
-                    ":",
-                    left + labelWidth + colonWidth / 2,
-                    y
-                );
+                ctx.fillText(":", left + labelWidth + colonWidth / 2, y);
 
                 ctx.font = `800 ${fontSize}px Arial`;
                 ctx.fillStyle = "#000000";
@@ -1151,144 +1158,84 @@
                 let finalValue = value;
                 const maxWidth = valueWidth - 2;
 
-                while (
-                    ctx.measureText(finalValue).width > maxWidth &&
-                    finalValue.length > 1
-                ) {
-                    finalValue = finalValue.substring(
-                        0,
-                        finalValue.length - 1
-                    );
+                while (finalValue && ctx.measureText(finalValue).width > maxWidth && finalValue.length > 1) {
+                    finalValue = finalValue.substring(0, finalValue.length - 1);
                 }
 
-                if (finalValue !== value) {
-                    finalValue = finalValue.substring(
-                        0,
-                        Math.max(0, finalValue.length - 1)
-                    ) + "…";
+                if (finalValue !== value && finalValue) {
+                    finalValue = finalValue.substring(0, Math.max(0, finalValue.length - 1)) + "…";
                 }
 
-                ctx.fillText(
-                    finalValue,
-                    left + labelWidth + colonWidth,
-                    y
-                );
+                if (finalValue) {
+                    ctx.fillText(finalValue, left + labelWidth + colonWidth, y);
+                }
             });
         }
 
         async function downloadCanvasJPG(canvas, filename) {
-
             return new Promise((resolve, reject) => {
+                try {
+                    // toDataURL avoids the blob/fetch path that was failing
+                    // on the mobile browser. Quality is kept at maximum.
+                    const dataUrl = canvas.toDataURL("image/jpeg", 1.0);
 
-                canvas.toBlob(
-                    blob => {
+                    const link = document.createElement("a");
+                    link.href = dataUrl;
+                    link.download = filename;
+                    link.style.display = "none";
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
 
-                        if (!blob) {
-                            reject(
-                                new Error("JPG create nahi ho saka.")
-                            );
-                            return;
-                        }
-
-                        const url =
-                            URL.createObjectURL(blob);
-
-                        const link =
-                            document.createElement("a");
-
-                        link.href = url;
-                        link.download = filename;
-
-                        document.body.appendChild(link);
-                        link.click();
-                        link.remove();
-
-                        setTimeout(() => {
-                            URL.revokeObjectURL(url);
-                            resolve();
-                        }, 500);
-                    },
-
-                    "image/jpeg",
-
-                    1.0
-                );
+                    setTimeout(resolve, 100);
+                } catch (error) {
+                    reject(error);
+                }
             });
         }
 
         async function downloadJPG() {
 
-            const button =
-                document.querySelector(".btn-download");
-
-            const nameInput =
-                document.getElementById("inpName");
+            const button = document.querySelector(".btn-download");
 
             try {
-
                 button.disabled = true;
-                button.textContent =
-                    "GENERATING HIGH QUALITY JPG...";
+                button.textContent = "GENERATING HIGH QUALITY JPG...";
 
-                let employeeName =
-                    nameInput
-                        ? nameInput.value.trim()
-                        : "";
+                let employeeName = (document.getElementById("inpName")?.value || "Employee").trim();
+                employeeName = employeeName
+                    .replace(/[\\/:*?"<>|]/g, "")
+                    .replace(/\s+/g, "_") || "Employee";
 
-                if (!employeeName) {
-                    employeeName = "Employee";
-                }
+                // 450 DPI equivalent. This gives a larger JPG than the
+                // previous 300-DPI export while keeping the canvas practical
+                // on both laptop and mobile.
+                const EXPORT_DPI = 450;
 
-                employeeName =
-                    employeeName
-                        .replace(/[\\/:*?"<>|]/g, "")
-                        .replace(/\s+/g, "_");
+                const frontCanvas = await createCardCanvas("front", EXPORT_DPI);
+                await downloadCanvasJPG(frontCanvas, employeeName + "_Front.jpg");
 
-                /*
-                 * 300 DPI:
-                 *
-                 * 5.4 cm = approximately 638 px
-                 * 8.6 cm = approximately 1016 px
-                 *
-                 * This is excellent for ID-card printing.
-                 */
+                // Let the browser release the first canvas before creating
+                // the second one, especially useful on mobile devices.
+                await new Promise(r => setTimeout(r, 250));
 
-                const frontCanvas =
-                    await createCardCanvas("front", 300);
-
-                await downloadCanvasJPG(
-                    frontCanvas,
-                    employeeName + "_Front.jpg"
-                );
-
-                const backCanvas =
-                    await createCardCanvas("back", 300);
-
-                await downloadCanvasJPG(
-                    backCanvas,
-                    employeeName + "_Back.jpg"
-                );
+                const backCanvas = await createCardCanvas("back", EXPORT_DPI);
+                await downloadCanvasJPG(backCanvas, employeeName + "_Back.jpg");
 
                 button.disabled = false;
-                button.textContent =
-                    "Download JPG (Front + Back)";
+                button.textContent = "Download JPG (Front + Back)";
 
-                alert(
-                    "Front & Back high-quality JPG successfully downloaded."
-                );
+                alert("Front & Back high-quality JPG successfully downloaded.");
 
             } catch (error) {
-
                 console.error(error);
 
                 button.disabled = false;
-                button.textContent =
-                    "Download JPG (Front + Back)";
+                button.textContent = "Download JPG (Front + Back)";
 
                 alert(
                     "JPG download nahi ho saka.\n\n" +
-                    "Error: " +
-                    error.message
+                    "Error: " + error.message
                 );
             }
         }
