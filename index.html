@@ -1075,7 +1075,7 @@
                     X(4.8),
                     sx,
                     {
-                        labelWidth: X(2.1),
+                        labelWidth: X(1.8),
                         fontSize: 7,
                         gap: 1.5,
                         labelColor: "#003366"
@@ -1144,20 +1144,21 @@
 
                 const label = row[0];
                 const value = getTextValue(row[1]);
+		const currentFontSize = row[1] === "cardEmail" ? fontSize * 0.85 : fontSize;
 
                 ctx.textBaseline = "middle";
 
-                ctx.font = `700 ${fontSize}px Arial`;
+                ctx.font = `700 ${currentFontSize}px Arial`;
                 ctx.fillStyle = options.labelColor;
                 ctx.textAlign = "left";
                 ctx.fillText(label, left, y);
 
-                ctx.font = `700 ${fontSize}px Arial`;
+                ctx.font = `700 ${currentFontSize}px Arial`;
                 ctx.fillStyle = "#000000";
                 ctx.textAlign = "center";
                 ctx.fillText(":", left + labelWidth + colonWidth / 2, y);
 
-                ctx.font = `800 ${fontSize}px Arial`;
+                ctx.font = `800 ${currentFontSize}px Arial`;
                 ctx.fillStyle = "#000000";
                 ctx.textAlign = "left";
 
