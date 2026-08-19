@@ -865,7 +865,7 @@ async function downloadJPG() {
             await waitForImages(card);
 
             const canvas = await html2canvas(card, {
-                scale: 4,
+                scale: 8,
                 useCORS: true,
                 allowTaint: false,
                 backgroundColor: "#ffffff",
