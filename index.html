@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JNV ID Card Generator</title>
 
-    <!-- html2pdf Library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- html2canvas Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <style>
         * {
@@ -576,8 +576,8 @@
 
         <!-- DOWNLOAD -->
 
-        <button class="btn-download" onclick="downloadPDF()">
-            Download PDF (2 Pages)
+        <button class="btn-download" onclick="downloadJPG()">
+            Download JPG (Front + Back)
         </button>
 
     </div>
@@ -808,125 +808,107 @@
         }
 
 
-async function downloadPDF() {
+async function downloadJPG() {
 
     const button = document.querySelector(".btn-download");
-    const printArea = document.getElementById("print-area");
-    const wrappers = printArea.querySelectorAll(".card-wrapper");
+    const frontCard = document.getElementById("front-card");
+    const backCard = document.getElementById("back-card");
+    const nameInput = document.getElementById("inpName");
 
     try {
 
-        if (typeof html2pdf !== "function") {
-            alert("PDF library load nahi hui.");
+        if (typeof html2canvas !== "function") {
+            alert("Image library load nahi hui. Internet check karke page refresh karein.");
+            return;
+        }
+
+        if (!frontCard || !backCard) {
+            alert("Front ya Back card nahi mila.");
             return;
         }
 
         button.disabled = true;
-        button.textContent = "GENERATING PDF...";
+        button.textContent = "GENERATING JPG...";
 
-        // Save original styles
-        const oldWidth = printArea.style.width;
-        const oldDisplay = printArea.style.display;
-        const oldGap = printArea.style.gap;
+        let employeeName = nameInput ? nameInput.value.trim() : "";
 
-        const oldStyles = [];
+        if (!employeeName) {
+            employeeName = "Employee";
+        }
 
-        wrappers.forEach((wrapper) => {
+        employeeName = employeeName
+            .replace(/[\\/:*?"<>|]/g, "")
+            .replace(/\s+/g, "_");
 
-            oldStyles.push({
-                width: wrapper.style.width,
-                height: wrapper.style.height,
-                margin: wrapper.style.margin,
-                padding: wrapper.style.padding,
-                pageBreakAfter: wrapper.style.pageBreakAfter,
-                breakAfter: wrapper.style.breakAfter
+        async function waitForImages(card) {
+
+            const images = card.querySelectorAll("img");
+
+            await Promise.all(
+                Array.from(images).map(img => {
+
+                    if (img.complete) {
+                        return Promise.resolve();
+                    }
+
+                    return new Promise(resolve => {
+                        img.onload = resolve;
+                        img.onerror = resolve;
+                    });
+
+                })
+            );
+        }
+
+        async function downloadCard(card, filename) {
+
+            await waitForImages(card);
+
+            const canvas = await html2canvas(card, {
+                scale: 4,
+                useCORS: true,
+                allowTaint: false,
+                backgroundColor: "#ffffff",
+                logging: false,
+                imageTimeout: 15000,
+                scrollX: 0,
+                scrollY: 0
             });
 
-            wrapper.style.width = "5.4cm";
-            wrapper.style.height = "8.6cm";
-            wrapper.style.margin = "0 auto";
-            wrapper.style.padding = "0";
-            wrapper.style.boxSizing = "border-box";
-        });
+            const link = document.createElement("a");
 
-        // A4 container
-        printArea.style.width = "21cm";
-        printArea.style.display = "flex";
-        printArea.style.flexDirection = "column";
-        printArea.style.alignItems = "center";
-        printArea.style.gap = "0";
+            link.download = filename;
+            link.href = canvas.toDataURL("image/jpeg", 1.0);
 
-        // Exactly one card per A4 page
-        wrappers[0].style.pageBreakAfter = "always";
-        wrappers[0].style.breakAfter = "page";
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
 
-        wrappers[1].style.pageBreakAfter = "auto";
-        wrappers[1].style.breakAfter = "auto";
+            await new Promise(resolve => setTimeout(resolve, 700));
+        }
 
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await downloadCard(
+            frontCard,
+            employeeName + "_Front.jpg"
+        );
 
-        const opt = {
-
-            margin: 0,
-
-            filename: "JNV_ID_Card.pdf",
-
-            image: {
-                type: "jpeg",
-                quality: 1
-            },
-
-            html2canvas: {
-                scale: 3,
-                useCORS: true,
-                allowTaint: true,
-                backgroundColor: "#ffffff"
-            },
-
-            jsPDF: {
-                unit: "cm",
-                format: "a4",
-                orientation: "portrait"
-            },
-
-            pagebreak: {
-                mode: ["css"]
-            }
-        };
-
-        await html2pdf()
-            .set(opt)
-            .from(printArea)
-            .save();
-
-        // Restore preview
-        printArea.style.width = oldWidth;
-        printArea.style.display = oldDisplay;
-        printArea.style.gap = oldGap;
-
-        wrappers.forEach((wrapper, index) => {
-
-            wrapper.style.width = oldStyles[index].width;
-            wrapper.style.height = oldStyles[index].height;
-            wrapper.style.margin = oldStyles[index].margin;
-            wrapper.style.padding = oldStyles[index].padding;
-            wrapper.style.pageBreakAfter = oldStyles[index].pageBreakAfter;
-            wrapper.style.breakAfter = oldStyles[index].breakAfter;
-            wrapper.style.boxSizing = "";
-        });
+        await downloadCard(
+            backCard,
+            employeeName + "_Back.jpg"
+        );
 
         button.disabled = false;
-        button.textContent = "Download PDF (2 Pages)";
+        button.textContent = "Download JPG (Front + Back)";
 
     } catch (error) {
 
         console.error(error);
 
         button.disabled = false;
-        button.textContent = "Download PDF (2 Pages)";
+        button.textContent = "Download JPG (Front + Back)";
 
         alert(
-            "PDF download nahi ho saka.\n\nError: " +
+            "JPG download nahi ho saka.\n\nError: " +
             error.message
         );
     }
